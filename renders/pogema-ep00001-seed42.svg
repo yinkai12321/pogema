@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+             width="512" height="512" viewBox="0 -800 800 800">
+<defs>
+
+        <rect id="obstacle" width="70" height="70" fill="#84A1AE" rx="15"/>
+        <style>
+        .line {stroke: #84A1AE; stroke-width: 10;}
+        .agent {r: 35;}
+        .target {fill: none; stroke-width: 10; r: 35;}
+        </style>
+        
+</defs>
+
+<line class="line" x1="-50.0" x2="-50.0" y1="0" y2="-800" />
+<line class="line" x1="50.0" x2="50.0" y1="0" y2="-800" />
+<line class="line" x1="150.0" x2="150.0" y1="0" y2="-800" />
+<line class="line" x1="250.0" x2="250.0" y1="0" y2="-800" />
+<line class="line" x1="350.0" x2="350.0" y1="0" y2="-800" />
+<line class="line" x1="450.0" x2="450.0" y1="0" y2="-800" />
+<line class="line" x1="550.0" x2="550.0" y1="0" y2="-800" />
+<line class="line" x1="650.0" x2="650.0" y1="0" y2="-800" />
+<line class="line" x1="750.0" x2="750.0" y1="0" y2="-800" />
+<line class="line" x1="0" x2="800" y1="50.0" y2="50.0" />
+<line class="line" x1="0" x2="800" y1="-50.0" y2="-50.0" />
+<line class="line" x1="0" x2="800" y1="-150.0" y2="-150.0" />
+<line class="line" x1="0" x2="800" y1="-250.0" y2="-250.0" />
+<line class="line" x1="0" x2="800" y1="-350.0" y2="-350.0" />
+<line class="line" x1="0" x2="800" y1="-450.0" y2="-450.0" />
+<line class="line" x1="0" x2="800" y1="-550.0" y2="-550.0" />
+<line class="line" x1="0" x2="800" y1="-650.0" y2="-650.0" />
+<line class="line" x1="0" x2="800" y1="-750.0" y2="-750.0" />
+<use href="#obstacle" x="65" y="-135" />
+<use href="#obstacle" x="65" y="-235" />
+<use href="#obstacle" x="65" y="-335" />
+<use href="#obstacle" x="65" y="-435" />
+<use href="#obstacle" x="65" y="-535" />
+<use href="#obstacle" x="65" y="-635" />
+<use href="#obstacle" x="65" y="-735" />
+<use href="#obstacle" x="165" y="-135" />
+<use href="#obstacle" x="165" y="-235" />
+<use href="#obstacle" x="165" y="-535" />
+<use href="#obstacle" x="165" y="-635" />
+<use href="#obstacle" x="165" y="-735" />
+<use href="#obstacle" x="265" y="-135" />
+<use href="#obstacle" x="265" y="-435" />
+<use href="#obstacle" x="265" y="-535" />
+<use href="#obstacle" x="265" y="-735" />
+<use href="#obstacle" x="365" y="-135" />
+<use href="#obstacle" x="365" y="-235" />
+<use href="#obstacle" x="365" y="-535" />
+<use href="#obstacle" x="365" y="-635" />
+<use href="#obstacle" x="365" y="-735" />
+<use href="#obstacle" x="465" y="-135" />
+<use href="#obstacle" x="465" y="-235" />
+<use href="#obstacle" x="465" y="-335" />
+<use href="#obstacle" x="465" y="-435" />
+<use href="#obstacle" x="465" y="-735" />
+<use href="#obstacle" x="565" y="-135" />
+<use href="#obstacle" x="565" y="-235" />
+<use href="#obstacle" x="565" y="-735" />
+<use href="#obstacle" x="665" y="-135" />
+<use href="#obstacle" x="665" y="-235" />
+<use href="#obstacle" x="665" y="-335" />
+<use href="#obstacle" x="665" y="-435" />
+<use href="#obstacle" x="665" y="-535" />
+<use href="#obstacle" x="665" y="-635" />
+<use href="#obstacle" x="665" y="-735" />
+<circle class="agent" cx="300" cy="-200" fill="#c1433c" r="35"> <animate attributeName="cy" dur="6.25s" keyTimes="0.0;0.0384615385;0.3461538462;0.3846153846;0.4230769231;0.4615384615;0.8461538462;0.8846153846;1.0" repeatCount="indefinite" values="-200;-200;-200;-300;-300;-200;-200;-300;-300"/>
+<animate attributeName="cx" dur="6.25s" keyTimes="0.0;0.0384615385;0.9230769231;0.9615384615;1.0" repeatCount="indefinite" values="300;300;300;400;400"/>
+<animate attributeName="visibility" dur="6.25s" keyTimes="0.0;0.0384615385;0.9230769231;0.9615384615;1.0" repeatCount="indefinite" values="visible;visible;visible;hidden;hidden"/> </circle>
+<circle class="target" cx="400" cy="-300" r="35" stroke="#c1433c"> <animate attributeName="visibility" dur="6.25s" keyTimes="0.0;0.0384615385;0.9230769231;0.9615384615;1.0" repeatCount="indefinite" values="visible;visible;visible;hidden;hidden"/> </circle>
+</svg>
