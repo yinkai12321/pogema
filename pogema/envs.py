@@ -58,6 +58,7 @@ class PogemaBase(gymnasium.Env):
         """
         return np.concatenate([
             self.grid.get_obstacles_for_agent(agent_id)[None],
+            self.grid.get_stocks_for_agent(agent_id)[None],
             self.grid.get_positions(agent_id)[None],
             self.grid.get_square_target(agent_id)[None]
         ])
@@ -197,6 +198,7 @@ class Pogema(PogemaBase):
 
         for agent_idx in range(self.grid_config.num_agents):
             result = {'obstacles': self.grid.get_obstacles_for_agent(agent_idx),
+                      'stocks': self.grid.get_stocks_for_agent(agent_idx),
                       'agents': self.grid.get_positions(agent_idx),
                       'xy': agents_xy_relative[agent_idx],
                       'target_xy': targets_xy_relative[agent_idx]}
@@ -278,6 +280,9 @@ class Pogema(PogemaBase):
 
     def get_obstacles(self, ignore_borders=False):
         return self.grid.get_obstacles(ignore_borders=ignore_borders)
+    
+    def get_stocks(self, ignore_borders=False):
+        return self.grid.get_stocks(ignore_borders=ignore_borders)
 
     def get_agents_xy(self, only_active=False, ignore_borders=False):
         return self.grid.get_agents_xy(only_active=only_active, ignore_borders=ignore_borders)

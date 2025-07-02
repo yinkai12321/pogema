@@ -19,10 +19,12 @@ class Grid:
         if self.config.map is None:
             self.obstacles = generate_obstacles(self.config)
         else:
-            self.obstacles = np.array([np.array(line) for line in self.config.map])
+            self.obstacles = np.array([np.array(line) for line in self.config.map])[0]
+            self.stocks = np.array([np.array(line) for line in self.config.map])[1]
         if in_registry(self.config.map_name):
             self.obstacles = get_grid(self.config.map_name).get_obstacles()
         self.obstacles = self.obstacles.astype(np.int32)
+        self.stocks = self.stocks.astype(np.int32)
 
         if grid_config.targets_xy and grid_config.agents_xy:
             self.starts_xy, self.finishes_xy = grid_config.agents_xy, grid_config.targets_xy
@@ -76,6 +78,8 @@ class Grid:
     def add_artificial_border(self):
         gc = self.config
         r = gc.obs_radius
+
+        # 处理 obstacles 的边界
         if gc.empty_outside:
             filled_obstacles = np.zeros(np.array(self.obstacles.shape) + r * 2)
         else:
@@ -90,6 +94,12 @@ class Grid:
 
         self.obstacles = filled_obstacles
 
+        # 新增：处理 stocks 的边界
+        filled_stocks = np.zeros(np.array(self.stocks.shape) + r * 2, dtype=np.int32)
+        filled_stocks[r:height - r, r:width - r] = self.stocks
+        self.stocks = filled_stocks
+
+        # 更新位置坐标
         self.starts_xy = [(x + r, y + r) for x, y in self.starts_xy]
         self.finishes_xy = [(x + r, y + r) for x, y in self.finishes_xy]
 
@@ -98,6 +108,12 @@ class Grid:
         if ignore_borders:
             return self.obstacles[gc.obs_radius:-gc.obs_radius, gc.obs_radius:-gc.obs_radius].copy()
         return self.obstacles.copy()
+    
+    def get_stocks(self, ignore_borders=False):
+        gc = self.config
+        if ignore_borders:
+            return self.stocks[gc.obs_radius:-gc.obs_radius, gc.obs_radius:-gc.obs_radius].copy()
+        return self.stocks.copy()
 
     @staticmethod
     def _cut_borders_xy(positions, obs_radius):
@@ -180,6 +196,11 @@ class Grid:
         x, y = self.positions_xy[agent_id]
         r = self.config.obs_radius
         return self.obstacles[x - r:x + r + 1, y - r:y + r + 1].astype(np.float32)
+    
+    def get_stocks_for_agent(self, agent_id):
+        x, y = self.positions_xy[agent_id]
+        r = self.config.obs_radius
+        return self.stocks[x - r:x + r + 1, y - r:y + r + 1].astype(np.float32)
 
     def get_positions(self, agent_id):
         x, y = self.positions_xy[agent_id]

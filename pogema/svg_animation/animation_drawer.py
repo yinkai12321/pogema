@@ -33,6 +33,11 @@ class SvgSettings:
     egocentric_shaded: bool = True
     stroke_dasharray: int = 25
 
+    # 货物相关配置
+    stock_color: str = '#FF8C42'        # 橙色货物
+    stock_border_color: str = '#E65100'  # 深橙色边框
+    stock_opacity: float = 0.8          # 货物透明度
+
     colors: tuple = (
         '#c1433c',
         '#2e6f9e',
@@ -47,6 +52,7 @@ class SvgSettings:
 @dataclass
 class GridHolder:
     obstacles: typing.Any = None
+    stocks: typing.Any = None
     episode_length: int = None
     height: int = None
     width: int = None
@@ -83,12 +89,28 @@ class Drawing:
         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
              width="{scaled_width}" height="{scaled_height}" viewBox="{" ".join(map(str, view_box))}">'''
 
+        # definitions = f'''
+        # <rect id="obstacle" width="{self.svg_settings.r * 2}" height="{self.svg_settings.r * 2}" fill="{self.svg_settings.obstacle_color}" rx="{self.svg_settings.rx}"/>
+        # <style>
+        # .line {{stroke: {self.svg_settings.obstacle_color}; stroke-width: {self.svg_settings.stroke_width};}}
+        # .agent {{r: {self.svg_settings.r};}}
+        # .target {{fill: none; stroke-width: {self.svg_settings.stroke_width}; r: {self.svg_settings.r};}}
+        # </style>
+        # '''
+
         definitions = f'''
         <rect id="obstacle" width="{self.svg_settings.r * 2}" height="{self.svg_settings.r * 2}" fill="{self.svg_settings.obstacle_color}" rx="{self.svg_settings.rx}"/>
+        <rect id="stock" width="{self.svg_settings.r * 2}" height="{self.svg_settings.r * 2}" 
+              fill="{self.svg_settings.stock_color}" 
+              stroke="{self.svg_settings.stock_border_color}" 
+              stroke-width="3" 
+              opacity="{self.svg_settings.stock_opacity}" 
+              rx="{self.svg_settings.rx}"/>
         <style>
         .line {{stroke: {self.svg_settings.obstacle_color}; stroke-width: {self.svg_settings.stroke_width};}}
         .agent {{r: {self.svg_settings.r};}}
         .target {{fill: none; stroke-width: {self.svg_settings.stroke_width}; r: {self.svg_settings.r};}}
+        .stock {{fill: {self.svg_settings.stock_color}; stroke: {self.svg_settings.stock_border_color}; stroke-width: 3;}}
         </style>
         '''
 
@@ -109,6 +131,7 @@ class AnimationDrawer:
         render_height = gh.width * gh.svg_settings.scale_size + gh.svg_settings.scale_size
         drawing = Drawing(width=render_width, height=render_height, svg_settings=SvgSettings())
         obstacles = self.create_obstacles(gh)
+        stocks = self.create_stock(gh)  # 创建货物
 
         agents = []
         targets = []
@@ -124,13 +147,14 @@ class AnimationDrawer:
             grid_lines = self.create_grid_lines(gh, render_width, render_height)
             for line in grid_lines:
                 drawing.add_element(line)
-        for obj in [*obstacles, *agents, *targets]:
+        for obj in [*obstacles,*stocks, *agents, *targets]:
             drawing.add_element(obj)
 
         if gh.config.egocentric_idx is not None:
             field_of_view = self.create_field_of_view(grid_holder=gh)
             if not gh.config.static:
                 self.animate_obstacles(obstacles=obstacles, grid_holder=gh)
+                self.animate_stocks(stocks=stocks, grid_holder=gh)  # 货物也有类似动画
                 self.animate_field_of_view(field_of_view, gh)
             drawing.add_element(field_of_view)
 
@@ -315,6 +339,51 @@ class AnimationDrawer:
                     result.append(RectangleHref(**obs_settings))
 
         return result
+    
+    # 创建货物
+    def create_stock(self, grid_holder):  # 修正方法名
+        """
+        创建货物的SVG元素
+        假设货物信息存储在 grid_holder.stocks 中
+        """
+        gh = grid_holder
+        result = []
+
+        # 假设 stocks 是一个二维数组，类似 obstacles
+        if not hasattr(gh, 'stocks') or gh.stocks is None:
+            return result  # 如果没有货物数据，返回空列表
+
+        for i in range(gh.height):
+            for j in range(gh.width):
+                x, y = self.fix_point(i, j, gh.width)
+
+                # 检查当前位置是否有货物
+                if gh.stocks[x][y]:
+                    stock_settings = {}
+                    stock_settings.update(
+                        x=gh.svg_settings.draw_start + i * gh.svg_settings.scale_size - gh.svg_settings.r,
+                        y=gh.svg_settings.draw_start + j * gh.svg_settings.scale_size - gh.svg_settings.r,
+                        width=gh.svg_settings.r * 2,
+                        height=gh.svg_settings.r * 2,
+                        fill=gh.svg_settings.stock_color,
+                        stroke=gh.svg_settings.stock_border_color,
+                        stroke_width=3,
+                        opacity=gh.svg_settings.stock_opacity,
+                        rx=gh.svg_settings.rx,
+                        class_='stock'  # 添加CSS类
+                    )
+
+                    # 自我中心视角处理
+                    if gh.config.egocentric_idx is not None and gh.svg_settings.egocentric_shaded:
+                        initial_positions = [agent_states[0].get_xy() for agent_states in gh.history]
+                        ego_x, ego_y = initial_positions[gh.config.egocentric_idx]
+                        if not self.check_in_radius(x, y, ego_x, ego_y, grid_holder.obs_radius):
+                            stock_settings.update(opacity=gh.svg_settings.shaded_opacity)
+
+                    # 使用 Rectangle 而不是 RectangleHref，因为货物有自定义样式
+                    result.append(Rectangle(**stock_settings))
+
+        return result
 
     def animate_obstacles(self, obstacles, grid_holder):
         gh: GridHolder = grid_holder
@@ -340,6 +409,38 @@ class AnimationDrawer:
                 obstacle.add_animation(self.compressed_anim('opacity', opacity, gh.svg_settings.time_scale))
 
                 obstacle_idx += 1
+
+    def animate_stocks(self, stocks, grid_holder):
+        """
+        为货物添加动画效果（类似障碍物动画）
+        """
+        gh: GridHolder = grid_holder
+        stock_idx = 0
+
+        if not hasattr(gh, 'stocks') or gh.stocks is None:
+            return
+
+        for i in range(gh.height):
+            for j in range(gh.width):
+                x, y = self.fix_point(i, j, gh.width)
+                if not gh.stocks[x][y]:
+                    continue
+                    
+                opacity = []
+                seen = set()
+                
+                for step_idx, agent_state in enumerate(gh.history[gh.config.egocentric_idx]):
+                    ego_x, ego_y = agent_state.get_xy()
+                    if self.check_in_radius(x, y, ego_x, ego_y, grid_holder.obs_radius):
+                        seen.add((x, y))
+                    if (x, y) in seen:
+                        opacity.append(str(gh.svg_settings.stock_opacity))
+                    else:
+                        opacity.append(str(gh.svg_settings.shaded_opacity))
+
+                stock = stocks[stock_idx]
+                stock.add_animation(self.compressed_anim('opacity', opacity, gh.svg_settings.time_scale))
+                stock_idx += 1
 
     def create_agents(self, grid_holder):
         initial_positions = [state[0].get_xy() for state in grid_holder.history if state[0].is_active()]

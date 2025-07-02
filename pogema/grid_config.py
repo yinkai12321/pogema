@@ -76,7 +76,7 @@ class GridConfig(CommonSettings, ):
         if v is None:
             return None
         if isinstance(v, str):
-            v, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy = cls.str_map_to_list(v, values['FREE'],
+            v, stocks, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy = cls.str_map_to_list(v, values['FREE'],
                                                                                                     values['OBSTACLE'])
             if agents_xy and targets_xy and values.get('agents_xy') is not None and values.get(
                     'targets_xy') is not None:
@@ -100,7 +100,7 @@ class GridConfig(CommonSettings, ):
         values['size'] = size
         values['density'] = sum([sum(line) for line in v]) / area
 
-        return v
+        return v, stocks
 
     @validator('possible_agents_xy')
     def possible_agents_xy_validation(cls, v):
@@ -120,45 +120,59 @@ class GridConfig(CommonSettings, ):
     @staticmethod
     def str_map_to_list(str_map, free, obstacle):
         obstacles = []
+        stocks = []  # 货物
         agents = {}
         targets = {}
         possible_agents_xy = []
         possible_targets_xy = []
-        special_chars = {'@', '$', '!'}
+        special_chars = {'@', '$', '!', '%'}  # 添加 % 符号
 
         for row_idx, line in enumerate(str_map.split()):
-            row = []
+            obstacle_row = []
+            stock_row = []  # 新增：货物行
+            
             for col_idx, char in enumerate(line):
                 position = (row_idx, col_idx)
 
                 if char == '.':
-                    row.append(free)
+                    obstacle_row.append(free)
+                    stock_row.append(free)  # 自由区域没有货物
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
                 elif char == '#':
-                    row.append(obstacle)
+                    obstacle_row.append(obstacle)
+                    stock_row.append(free)  # 障碍物位置没有货物
+                elif char == '%':  # 新增：货物符号处理
+                    obstacle_row.append(free)  # 货物位置是自由通行的
+                    stock_row.append(obstacle)  # 标记为有货物（使用obstacle值表示存在）
+                    possible_agents_xy.append(position)  # 智能体可以到达货物位置
+                    possible_targets_xy.append(position)
                 elif char in special_chars:
-                    row.append(free)
+                    obstacle_row.append(free)
+                    stock_row.append(free)  # 特殊字符位置没有货物
                     if char == '@':
                         possible_agents_xy.append(position)
                     elif char == '$':
                         possible_targets_xy.append(position)
                 elif 'A' <= char <= 'Z':
                     targets[char.lower()] = position
-                    row.append(free)
+                    obstacle_row.append(free)
+                    stock_row.append(free)  # 目标位置没有货物
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
                 elif 'a' <= char <= 'z':
                     agents[char.lower()] = position
-                    row.append(free)
+                    obstacle_row.append(free)
+                    stock_row.append(free)  # 智能体起始位置没有货物
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
                 else:
                     raise KeyError(f"Unsupported symbol '{char}' at line {row_idx}")
 
-            if row:
-                assert len(obstacles[-1]) == len(row) if obstacles else True, f"Wrong string size for row {row_idx};"
-                obstacles.append(row)
+            if obstacle_row:
+                assert len(obstacles[-1]) == len(obstacle_row) if obstacles else True, f"Wrong string size for row {row_idx};"
+                obstacles.append(obstacle_row)
+                stocks.append(stock_row)  # 添加货物行
 
         agents_xy = [[x, y] for _, (x, y) in sorted(agents.items())]
         targets_xy = [[x, y] for _, (x, y) in sorted(targets.items())]
@@ -168,4 +182,4 @@ class GridConfig(CommonSettings, ):
         if not any(char in special_chars for char in str_map):
             possible_agents_xy, possible_targets_xy = None, None
 
-        return obstacles, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy
+        return obstacles, stocks, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy

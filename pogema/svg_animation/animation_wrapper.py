@@ -96,6 +96,7 @@ class AnimationMonitor(Wrapper):
         """
         wr = self._working_radius
         obstacles = self.env.get_obstacles(ignore_borders=False)[wr:-wr, wr:-wr]
+        stocks = self.env.get_stocks(ignore_borders=False)[wr:-wr, wr:-wr]
         history: list[list[AgentState]] = self.env.decompress_history(self.history)
 
         svg_settings = SvgSettings()
@@ -115,6 +116,7 @@ class AnimationMonitor(Wrapper):
         grid_holder = GridHolder(
             width=len(obstacles), height=len(obstacles[0]),
             obstacles=obstacles,
+            stocks=stocks,
             episode_length=episode_length,
             history=history,
             obs_radius=self.grid_config.obs_radius,
@@ -137,8 +139,8 @@ def main():
             grid = """
             ....#..
             ..#....
-            .......
-            .......
+            ....%..
+            ....%..
             #.#.#..
             #.#.#..
             """
