@@ -18,13 +18,19 @@ class Grid:
         self.rnd = np.random.default_rng(grid_config.seed)
         if self.config.map is None:
             self.obstacles = generate_obstacles(self.config)
+            self.stocks = np.zeros_like(self.obstacles, dtype=np.int32)
+            self.directions = np.zeros_like(self.obstacles, dtype=np.int32)  # 默认全方向
         else:
             self.obstacles = np.array([np.array(line) for line in self.config.map])[0]
             self.stocks = np.array([np.array(line) for line in self.config.map])[1]
+            self.directions = np.array([np.array(line) for line in self.config.map])[2]
         if in_registry(self.config.map_name):
             self.obstacles = get_grid(self.config.map_name).get_obstacles()
+            self.stocks = np.zeros_like(self.obstacles, dtype=np.int32)
+            self.directions = np.zeros_like(self.obstacles, dtype=np.int32)  # 默认全方向
         self.obstacles = self.obstacles.astype(np.int32)
         self.stocks = self.stocks.astype(np.int32)
+        self.directions = self.directions.astype(np.int32)
 
         if grid_config.targets_xy and grid_config.agents_xy:
             self.starts_xy, self.finishes_xy = grid_config.agents_xy, grid_config.targets_xy
@@ -99,6 +105,11 @@ class Grid:
         filled_stocks[r:height - r, r:width - r] = self.stocks
         self.stocks = filled_stocks
 
+        # 新增：处理 directions 的边界
+        filled_directions = np.zeros(np.array(self.directions.shape) + r * 2, dtype=np.int32)
+        filled_directions[r:height - r, r:width - r] = self.directions
+        self.directions = filled_directions
+
         # 更新位置坐标
         self.starts_xy = [(x + r, y + r) for x, y in self.starts_xy]
         self.finishes_xy = [(x + r, y + r) for x, y in self.finishes_xy]
@@ -114,6 +125,17 @@ class Grid:
         if ignore_borders:
             return self.stocks[gc.obs_radius:-gc.obs_radius, gc.obs_radius:-gc.obs_radius].copy()
         return self.stocks.copy()
+
+    def get_directions(self, ignore_borders=False):
+        """
+        获取方向矩阵
+        :param ignore_borders: 是否忽略边界
+        :return: 方向矩阵
+        """
+        gc = self.config
+        if ignore_borders:
+            return self.directions[gc.obs_radius:-gc.obs_radius, gc.obs_radius:-gc.obs_radius].copy()
+        return self.directions.copy()
 
     @staticmethod
     def _cut_borders_xy(positions, obs_radius):
@@ -179,9 +201,10 @@ class Grid:
         targets_xy = list(map(self._normalize_coordinates, self.get_targets_xy(ignore_borders)))
 
         obstacles = self.get_obstacles(ignore_borders)
+        directions = self.get_directions(ignore_borders)
 
         if as_dict:
-            return {"obstacles": obstacles, "agents_xy": agents_xy, "targets_xy": targets_xy}
+            return {"obstacles": obstacles, "agents_xy": agents_xy, "targets_xy": targets_xy, "directions": directions}
 
         return np.concatenate(list(map(lambda x: np.array(x).flatten(), [agents_xy, targets_xy, obstacles])))
 
@@ -201,6 +224,11 @@ class Grid:
         x, y = self.positions_xy[agent_id]
         r = self.config.obs_radius
         return self.stocks[x - r:x + r + 1, y - r:y + r + 1].astype(np.float32)
+
+    def get_directions_for_agent(self, agent_id):
+        x, y = self.positions_xy[agent_id]
+        r = self.config.obs_radius
+        return self.directions[x - r:x + r + 1, y - r:y + r + 1].astype(np.float32)
 
     def get_positions(self, agent_id):
         x, y = self.positions_xy[agent_id]
@@ -287,6 +315,35 @@ class Grid:
             raise KeyError("The cell is already occupied")
         self.positions[self.positions_xy[agent_id]] = self.config.OBSTACLE
         return True
+
+    def is_move_valid(self, from_pos, to_pos):
+        """
+        检查移动是否有效（基于方向限制）
+        :param from_pos: 起始位置 [x, y]
+        :param to_pos: 目标位置 [x, y]
+        :return: 是否有效
+        """
+        if not (0 <= from_pos[0] < self.directions.shape[0] and 
+                0 <= from_pos[1] < self.directions.shape[1]):
+            return False
+            
+        direction_type = self.directions[from_pos[0], from_pos[1]]
+        
+        dx = to_pos[0] - from_pos[0]
+        dy = to_pos[1] - from_pos[1]
+        
+        # 检查是否为相邻移动
+        if abs(dx) + abs(dy) != 1:
+            return False
+            
+        if direction_type == 0:  # 全方向
+            return True
+        elif direction_type == 1:  # 左右
+            return dx == 0 and dy != 0
+        elif direction_type == 2:  # 上下
+            return dy == 0 and dx != 0
+        
+        return False
 
 
 class GridLifeLong(Grid):

@@ -137,11 +137,11 @@ def main():
     for egocentric_idx in [0, 1]:
         for on_target in ['nothing', 'restart', 'finish']:
             grid = """
-            .AB.#..
-            ..#....
-            ....%..
-            ....%..
-            #.#.#..
+            .AB....
+            -||..||
+            ..--%||
+            ..||%||
+            #.#.#||
             #.#.#ab
             """.strip()
 

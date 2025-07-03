@@ -10,6 +10,7 @@ class GridMemory:
     def __init__(self, start_r=64):
         self._memory = np.zeros(shape=(start_r * 2 + 1, start_r * 2 + 1), dtype=np.bool_)
         self._stocks_memory = np.zeros(shape=(start_r * 2 + 1, start_r * 2 + 1), dtype=np.bool_)
+        self._directions_memory = np.zeros(shape=(start_r * 2 + 1, start_r * 2 + 1), dtype=np.int32)
 
     @staticmethod
     def _try_to_insert(x, y, source, target):
@@ -23,18 +24,23 @@ class GridMemory:
     def _increase_memory(self):
         m = self._memory
         s = self._stocks_memory
+        d = self._directions_memory
         r = self._memory.shape[0]
         self._memory = np.zeros(shape=(r * 2 + 1, r * 2 + 1))
         self._stocks_memory = np.zeros(shape=(r * 2 + 1, r * 2 + 1))
+        self._directions_memory = np.zeros(shape=(r * 2 + 1, r * 2 + 1), dtype=np.int32)
         assert self._try_to_insert(r, r, m, self._memory)
         assert self._try_to_insert(r, r, s, self._stocks_memory)
+        assert self._try_to_insert(r, r, d, self._directions_memory)
 
-    def update(self, x, y, obstacles, stocks=None):
+    def update(self, x, y, obstacles, stocks=None, directions=None):
         while True:
             r = self._memory.shape[0] // 2
             if self._try_to_insert(r + x, r + y, obstacles, self._memory):
                 if stocks is not None:
                     self._try_to_insert(r + x, r + y, stocks, self._stocks_memory)
+                if directions is not None:
+                    self._try_to_insert(r + x, r + y, directions, self._directions_memory)
                 break
             self._increase_memory()
 
@@ -78,6 +84,39 @@ class GridMemory:
         # 如果既不是障碍物也没有货物，则可以通过
         return True
 
+    def get_direction_type(self, x, y):
+        """获取指定位置的方向类型"""
+        r = self._directions_memory.shape[0] // 2
+        if -r <= x <= r and -r <= y <= r:
+            return self._directions_memory[r + x, r + y]
+        else:
+            return 0  # 默认为全方向
+
+    def is_move_valid_by_direction(self, from_x, from_y, to_x, to_y):
+        """
+        根据方向限制检查移动是否有效
+        :param from_x, from_y: 起始位置
+        :param to_x, to_y: 目标位置
+        :return: True if valid, False otherwise
+        """
+        direction_type = self.get_direction_type(from_x, from_y)
+        
+        dx = to_x - from_x
+        dy = to_y - from_y
+        
+        # 检查是否为相邻移动
+        if abs(dx) + abs(dy) != 1:
+            return False
+            
+        if direction_type == 0:  # 全方向
+            return True
+        elif direction_type == 1:  # 左右方向
+            return dy != 0 and dx == 0  # 只能左右移动
+        elif direction_type == 2:  # 上下方向
+            return dx != 0 and dy == 0  # 只能上下移动
+        
+        return False
+
 
 class Node:
     def __init__(self, coord=None, g: int = 0, h: int = 0):
@@ -105,7 +144,7 @@ def h(node, target):
 
 def a_star_vehicle_aware(start, target, grid: GridMemory, vehicle_type='standard', max_steps=10000):
     """
-    支持车辆类型的A*算法
+    支持车辆类型和方向限制的A*算法
     :param start: 起始位置
     :param target: 目标位置
     :param grid: 网格内存
@@ -122,8 +161,10 @@ def a_star_vehicle_aware(start, target, grid: GridMemory, vehicle_type='standard
         u = heappop(open_)
 
         for n in [(u.i - 1, u.j), (u.i + 1, u.j), (u.i, u.j - 1), (u.i, u.j + 1)]:
-            # 使用车辆类型判断是否可以通过
-            if grid.can_pass(*n, vehicle_type) and n not in closed:
+            # 检查车辆类型和方向限制
+            if (grid.can_pass(*n, vehicle_type) and 
+                grid.is_move_valid_by_direction(u.i, u.j, *n) and 
+                n not in closed):
                 heappush(open_, Node(n, u.g + 1, h(n, target)))
                 closed[n] = (u.i, u.j)
 
@@ -160,6 +201,8 @@ class AStarAgent:
         
         # 获取货物信息（如果观察中包含）
         stocks = obs.get('stocks', None)
+        directions = obs.get('directions', None)
+
 
         if self._saved_xy is not None and h(self._saved_xy, xy) > 1:
             raise IndexError("Agent moved more than 1 step. Please, call clear_state method before new episode.")
@@ -167,7 +210,7 @@ class AStarAgent:
             return self._rnd.integers(len(self._moves))
         
         # 更新网格内存，包括货物信息
-        self._gm.update(*xy, obstacles, stocks)
+        self._gm.update(*xy, obstacles, stocks, directions)
         
         # 使用车辆类型感知的A*算法
         path = a_star_vehicle_aware(xy, target_xy, self._gm, self.vehicle_type)
