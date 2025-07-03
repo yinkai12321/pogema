@@ -38,6 +38,12 @@ class SvgSettings:
     stock_border_color: str = '#E65100'  # 深橙色边框
     stock_opacity: float = 0.8          # 货物透明度
 
+    # 方向限制相关配置
+    direction_horizontal_color: str = '#4CAF50'  # 绿色 - 左右方向 (-)
+    direction_vertical_color: str = '#2196F3'    # 蓝色 - 上下方向 (|)
+    direction_opacity: float = 0.7               # 方向指示器透明度
+    direction_border_color: str = '#1976D2'      # 方向指示器边框颜色
+
     colors: tuple = (
         '#c1433c',
         '#2e6f9e',
@@ -53,6 +59,7 @@ class SvgSettings:
 class GridHolder:
     obstacles: typing.Any = None
     stocks: typing.Any = None
+    directions: typing.Any = None  # 新增：方向信息
     episode_length: int = None
     height: int = None
     width: int = None
@@ -106,11 +113,25 @@ class Drawing:
               stroke-width="3" 
               opacity="{self.svg_settings.stock_opacity}" 
               rx="{self.svg_settings.rx}"/>
+        <rect id="direction_horizontal" width="{self.svg_settings.r * 2}" height="{self.svg_settings.r // 2}" 
+              fill="{self.svg_settings.direction_horizontal_color}" 
+              stroke="{self.svg_settings.direction_border_color}" 
+              stroke-width="2" 
+              opacity="{self.svg_settings.direction_opacity}" 
+              rx="{self.svg_settings.rx // 2}"/>
+        <rect id="direction_vertical" width="{self.svg_settings.r // 2}" height="{self.svg_settings.r * 2}" 
+              fill="{self.svg_settings.direction_vertical_color}" 
+              stroke="{self.svg_settings.direction_border_color}" 
+              stroke-width="2" 
+              opacity="{self.svg_settings.direction_opacity}" 
+              rx="{self.svg_settings.rx // 2}"/>
         <style>
         .line {{stroke: {self.svg_settings.obstacle_color}; stroke-width: {self.svg_settings.stroke_width};}}
         .agent {{r: {self.svg_settings.r};}}
         .target {{fill: none; stroke-width: {self.svg_settings.stroke_width}; r: {self.svg_settings.r};}}
         .stock {{fill: {self.svg_settings.stock_color}; stroke: {self.svg_settings.stock_border_color}; stroke-width: 3;}}
+        .direction_horizontal {{fill: {self.svg_settings.direction_horizontal_color}; stroke: {self.svg_settings.direction_border_color}; stroke-width: 2;}}
+        .direction_vertical {{fill: {self.svg_settings.direction_vertical_color}; stroke: {self.svg_settings.direction_border_color}; stroke-width: 2;}}
         </style>
         '''
 
@@ -132,6 +153,7 @@ class AnimationDrawer:
         drawing = Drawing(width=render_width, height=render_height, svg_settings=SvgSettings())
         obstacles = self.create_obstacles(gh)
         stocks = self.create_stock(gh)  # 创建货物
+        directions = self.create_directions(gh)  # 创建方向指示器
 
         agents = []
         targets = []
@@ -147,7 +169,7 @@ class AnimationDrawer:
             grid_lines = self.create_grid_lines(gh, render_width, render_height)
             for line in grid_lines:
                 drawing.add_element(line)
-        for obj in [*obstacles,*stocks, *agents, *targets]:
+        for obj in [*obstacles, *stocks, *directions, *agents, *targets]:
             drawing.add_element(obj)
 
         if gh.config.egocentric_idx is not None:
@@ -155,6 +177,7 @@ class AnimationDrawer:
             if not gh.config.static:
                 self.animate_obstacles(obstacles=obstacles, grid_holder=gh)
                 self.animate_stocks(stocks=stocks, grid_holder=gh)  # 货物也有类似动画
+                self.animate_directions(directions=directions, grid_holder=gh)  # 方向指示器动画
                 self.animate_field_of_view(field_of_view, gh)
             drawing.add_element(field_of_view)
 
@@ -494,3 +517,98 @@ class AnimationDrawer:
             target = Circle(**circle_settings)
             targets.append(target)
         return targets
+
+    def create_directions(self, grid_holder):
+        """
+        创建方向指示器的SVG元素
+        1: 左右方向 (-) - 水平绿色条
+        2: 上下方向 (|) - 垂直蓝色条
+        """
+        gh = grid_holder
+        result = []
+
+        # 检查是否有方向数据
+        if not hasattr(gh, 'directions') or gh.directions is None:
+            return result
+
+        for i in range(gh.height):
+            for j in range(gh.width):
+                x, y = self.fix_point(i, j, gh.width)
+
+                direction_type = gh.directions[x][y]
+                
+                # 只为有方向限制的位置创建指示器 (1=左右, 2=上下)
+                if direction_type == 1:  # 左右方向 (-)
+                    direction_settings = {
+                        'x': gh.svg_settings.draw_start + i * gh.svg_settings.scale_size - gh.svg_settings.r,
+                        'y': gh.svg_settings.draw_start + j * gh.svg_settings.scale_size - gh.svg_settings.r // 4,
+                        'width': gh.svg_settings.r * 2,
+                        'height': gh.svg_settings.r // 2,
+                        'fill': gh.svg_settings.direction_horizontal_color,
+                        'stroke': gh.svg_settings.direction_border_color,
+                        'stroke_width': 2,
+                        'opacity': gh.svg_settings.direction_opacity,
+                        'rx': gh.svg_settings.rx // 2,
+                        'class_': 'direction_horizontal'
+                    }
+                elif direction_type == 2:  # 上下方向 (|)
+                    direction_settings = {
+                        'x': gh.svg_settings.draw_start + i * gh.svg_settings.scale_size - gh.svg_settings.r // 4,
+                        'y': gh.svg_settings.draw_start + j * gh.svg_settings.scale_size - gh.svg_settings.r,
+                        'width': gh.svg_settings.r // 2,
+                        'height': gh.svg_settings.r * 2,
+                        'fill': gh.svg_settings.direction_vertical_color,
+                        'stroke': gh.svg_settings.direction_border_color,
+                        'stroke_width': 2,
+                        'opacity': gh.svg_settings.direction_opacity,
+                        'rx': gh.svg_settings.rx // 2,
+                        'class_': 'direction_vertical'
+                    }
+                else:
+                    continue  # 跳过无方向限制的位置 (0=全方向)
+
+                # 自我中心视角处理
+                if gh.config.egocentric_idx is not None and gh.svg_settings.egocentric_shaded:
+                    initial_positions = [agent_states[0].get_xy() for agent_states in gh.history]
+                    ego_x, ego_y = initial_positions[gh.config.egocentric_idx]
+                    if not self.check_in_radius(x, y, ego_x, ego_y, grid_holder.obs_radius):
+                        direction_settings.update(opacity=gh.svg_settings.shaded_opacity)
+
+                result.append(Rectangle(**direction_settings))
+
+        return result
+
+    def animate_directions(self, directions, grid_holder):
+        """
+        为方向指示器添加动画效果
+        """
+        gh: GridHolder = grid_holder
+        direction_idx = 0
+
+        if not hasattr(gh, 'directions') or gh.directions is None:
+            return
+
+        for i in range(gh.height):
+            for j in range(gh.width):
+                x, y = self.fix_point(i, j, gh.width)
+                direction_type = gh.directions[x][y]
+                
+                # 只处理有方向限制的位置
+                if direction_type not in [1, 2]:
+                    continue
+                    
+                opacity = []
+                seen = set()
+                
+                for step_idx, agent_state in enumerate(gh.history[gh.config.egocentric_idx]):
+                    ego_x, ego_y = agent_state.get_xy()
+                    if self.check_in_radius(x, y, ego_x, ego_y, grid_holder.obs_radius):
+                        seen.add((x, y))
+                    if (x, y) in seen:
+                        opacity.append(str(gh.svg_settings.direction_opacity))
+                    else:
+                        opacity.append(str(gh.svg_settings.shaded_opacity))
+
+                direction = directions[direction_idx]
+                direction.add_animation(self.compressed_anim('opacity', opacity, gh.svg_settings.time_scale))
+                direction_idx += 1

@@ -97,6 +97,7 @@ class AnimationMonitor(Wrapper):
         wr = self._working_radius
         obstacles = self.env.get_obstacles(ignore_borders=False)[wr:-wr, wr:-wr]
         stocks = self.env.get_stocks(ignore_borders=False)[wr:-wr, wr:-wr]
+        directions = self.env.get_directions(ignore_borders=False)[wr:-wr, wr:-wr]  # 获取方向信息
         history: list[list[AgentState]] = self.env.decompress_history(self.history)
 
         svg_settings = SvgSettings()
@@ -117,6 +118,7 @@ class AnimationMonitor(Wrapper):
             width=len(obstacles), height=len(obstacles[0]),
             obstacles=obstacles,
             stocks=stocks,
+            directions=directions,  # 添加方向信息
             episode_length=episode_length,
             history=history,
             obs_radius=self.grid_config.obs_radius,
@@ -137,8 +139,8 @@ def main():
     for egocentric_idx in [0, 1]:
         for on_target in ['nothing', 'restart', 'finish']:
             grid = """
-            .AB....
-            -||..||
+            .AB||..
+            -|-..||
             ..--%||
             ..||%||
             #.#.#||
