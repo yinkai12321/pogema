@@ -138,10 +138,10 @@ def main():
         for on_target in ['nothing', 'restart', 'finish']:
             grid = """
             .AB.#..
-            ..#....
-            ....%..
-            ....%..
-            #.#.#..
+            --|....
+            ..--%|.
+            ..||%|.
+            #.#.#|.
             #.#.#ab
             """.strip()
 

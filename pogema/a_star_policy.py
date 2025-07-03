@@ -29,7 +29,7 @@ class GridMemory:
         assert self._try_to_insert(r, r, m, self._memory)
         assert self._try_to_insert(r, r, s, self._stocks_memory)
 
-    def update(self, x, y, obstacles, stocks=None):
+    def update(self, x, y, obstacles, stocks=None, directions=None):
         while True:
             r = self._memory.shape[0] // 2
             if self._try_to_insert(r + x, r + y, obstacles, self._memory):
@@ -160,6 +160,8 @@ class AStarAgent:
         
         # 获取货物信息（如果观察中包含）
         stocks = obs.get('stocks', None)
+        directions = obs.get('directions', None)
+
 
         if self._saved_xy is not None and h(self._saved_xy, xy) > 1:
             raise IndexError("Agent moved more than 1 step. Please, call clear_state method before new episode.")
@@ -167,7 +169,7 @@ class AStarAgent:
             return self._rnd.integers(len(self._moves))
         
         # 更新网格内存，包括货物信息
-        self._gm.update(*xy, obstacles, stocks)
+        self._gm.update(*xy, obstacles, stocks, directions)
         
         # 使用车辆类型感知的A*算法
         path = a_star_vehicle_aware(xy, target_xy, self._gm, self.vehicle_type)

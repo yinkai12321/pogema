@@ -76,7 +76,7 @@ class GridConfig(CommonSettings, ):
         if v is None:
             return None
         if isinstance(v, str):
-            v, stocks, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy = cls.str_map_to_list(v, values['FREE'],
+            v, stocks, directions, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy = cls.str_map_to_list(v, values['FREE'],
                                                                                                     values['OBSTACLE'])
             if agents_xy and targets_xy and values.get('agents_xy') is not None and values.get(
                     'targets_xy') is not None:
@@ -100,7 +100,7 @@ class GridConfig(CommonSettings, ):
         values['size'] = size
         values['density'] = sum([sum(line) for line in v]) / area
 
-        return v, stocks
+        return v, stocks, directions
 
     @validator('possible_agents_xy')
     def possible_agents_xy_validation(cls, v):
@@ -121,6 +121,7 @@ class GridConfig(CommonSettings, ):
     def str_map_to_list(str_map, free, obstacle):
         obstacles = []
         stocks = []  # 货物
+        directions = []  # 新增：方向信息
         agents = {}
         targets = {}
         possible_agents_xy = []
@@ -133,6 +134,7 @@ class GridConfig(CommonSettings, ):
         for row_idx, line in enumerate(str_map.split()):
             obstacle_row = []
             stock_row = []  # 新增：货物行
+            direction_row = []  # 新增：方向行
             
             for col_idx, char in enumerate(line):
                 position = (row_idx, col_idx)
@@ -140,19 +142,35 @@ class GridConfig(CommonSettings, ):
                 if char == '.':
                     obstacle_row.append(free)
                     stock_row.append(free)  # 自由区域没有货物
+                    direction_row.append(0)  # 0: 四个方向都可以走
+                    possible_agents_xy.append(position)
+                    possible_targets_xy.append(position)
+                elif char == '-':
+                    obstacle_row.append(free)
+                    stock_row.append(free)
+                    direction_row.append(1)  # 1: 左右方向
+                    possible_agents_xy.append(position)
+                    possible_targets_xy.append(position)
+                elif char == '|':
+                    obstacle_row.append(free)
+                    stock_row.append(free)
+                    direction_row.append(2)  # 2: 上下方向
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
                 elif char == '#':
                     obstacle_row.append(obstacle)
                     stock_row.append(free)  # 障碍物位置没有货物
+                    direction_row.append(0)  # 障碍物默认无方向限制
                 elif char == '%':  # 新增：货物符号处理
                     obstacle_row.append(free)  # 货物位置是自由通行的
                     stock_row.append(obstacle)  # 标记为有货物（使用obstacle值表示存在）
+                    direction_row.append(0)  # 货物位置默认四个方向都可以走
                     possible_agents_xy.append(position)  # 智能体可以到达货物位置
                     possible_targets_xy.append(position)
                 elif char in special_chars:
                     obstacle_row.append(free)
                     stock_row.append(free)  # 特殊字符位置没有货物
+                    direction_row.append(0)  # 特殊字符位置默认四个方向都可以走
                     if char == '@':
                         possible_agents_xy.append(position)
                     elif char == '$':
@@ -161,12 +179,14 @@ class GridConfig(CommonSettings, ):
                     targets[char.lower()] = position
                     obstacle_row.append(free)
                     stock_row.append(free)  # 目标位置没有货物
+                    direction_row.append(0)  # 目标位置默认四个方向都可以走
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
                 elif 'a' <= char <= 'z':
                     agents[char.lower()] = position
                     obstacle_row.append(free)
                     stock_row.append(free)  # 智能体起始位置没有货物
+                    direction_row.append(0)  # 智能体起始位置默认四个方向都可以走
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
                 else:
@@ -176,6 +196,7 @@ class GridConfig(CommonSettings, ):
                 assert len(obstacles[-1]) == len(obstacle_row) if obstacles else True, f"Wrong string size for row {row_idx};"
                 obstacles.append(obstacle_row)
                 stocks.append(stock_row)  # 添加货物行
+                directions.append(direction_row)  # 添加方向行
 
         agents_xy = [[x, y] for _, (x, y) in sorted(agents.items())]
         targets_xy = [[x, y] for _, (x, y) in sorted(targets.items())]
@@ -185,4 +206,4 @@ class GridConfig(CommonSettings, ):
         if has_explicit_agents or not any(char in special_chars for char in str_map):
             possible_agents_xy, possible_targets_xy = None, None
 
-        return obstacles, stocks, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy
+        return obstacles, stocks, directions, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy
