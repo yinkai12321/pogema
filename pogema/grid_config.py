@@ -127,6 +127,9 @@ class GridConfig(CommonSettings, ):
         possible_targets_xy = []
         special_chars = {'@', '$', '!', '%'}  # 添加 % 符号
 
+        # 检查地图中是否有明确的智能体定义（字母）
+        has_explicit_agents = any(c.isalpha() for c in str_map)
+
         for row_idx, line in enumerate(str_map.split()):
             obstacle_row = []
             stock_row = []  # 新增：货物行
@@ -179,7 +182,7 @@ class GridConfig(CommonSettings, ):
 
         assert len(targets_xy) == len(agents_xy), "Mismatch in number of agents and targets."
 
-        if not any(char in special_chars for char in str_map):
+        if has_explicit_agents or not any(char in special_chars for char in str_map):
             possible_agents_xy, possible_targets_xy = None, None
 
         return obstacles, stocks, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy

@@ -137,15 +137,19 @@ def main():
     for egocentric_idx in [0, 1]:
         for on_target in ['nothing', 'restart', 'finish']:
             grid = """
-            ....#..
+            .AB.#..
             ..#....
             ....%..
             ....%..
             #.#.#..
-            #.#.#..
-            """
+            #.#.#ab
+            """.strip()
+
+            agents_xy = [[2, 1], [3, 1]]    # 智能体起点坐标 [行, 列]
+            targets_xy = [[5, 1], [5, 2]]   # 智能体终点坐标 [行, 列]
+
             grid_config = GridConfig(size=32, num_agents=2, obs_radius=2, seed=8, on_target=on_target,
-                                     max_episode_steps=16,
+                                     max_episode_steps=16, 
                                      density=0.1, map=grid, observation_type="POMAPF")
             env = pogema_v0(grid_config=grid_config)
             env = AnimationMonitor(env, AnimationConfig(save_every_idx_episode=None))
@@ -153,7 +157,7 @@ def main():
             obs, _ = env.reset()
             truncated = terminated = [False]
 
-            agent = BatchAStarAgent()
+            agent = BatchAStarAgent(vehicle_types=['small', 'standard'])
             while not all(terminated) and not all(truncated):
                 obs, _, terminated, truncated, _ = env.step(agent.act(obs))
 
