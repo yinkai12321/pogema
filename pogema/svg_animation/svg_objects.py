@@ -75,3 +75,26 @@ class Animation(SvgObject):
 
     def render(self):
         return f"<{self.tag} {self.render_attributes(self.attributes)}/>"
+
+
+class Polygon(SvgObject):
+    """
+    Polygon class for the SVG - used for drawing arrows and other shapes.
+    """
+    tag = 'polygon'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Handle coordinate transformation for polygon points
+        if 'points' in self.attributes:
+            # Parse points and transform y coordinates
+            points_str = self.attributes['points']
+            point_pairs = points_str.split()
+            transformed_points = []
+            for point_pair in point_pairs:
+                if ',' in point_pair:
+                    x, y = map(float, point_pair.split(','))
+                    transformed_points.append(f"{x},{-y}")
+                else:
+                    transformed_points.append(point_pair)
+            self.attributes['points'] = ' '.join(transformed_points)

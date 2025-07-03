@@ -3,7 +3,7 @@ import typing
 from dataclasses import dataclass
 
 from pogema import GridConfig
-from pogema.svg_animation.svg_objects import Line, RectangleHref, Animation, Circle, Rectangle
+from pogema.svg_animation.svg_objects import Line, RectangleHref, Animation, Circle, Rectangle, Polygon
 
 
 @dataclass
@@ -520,9 +520,9 @@ class AnimationDrawer:
 
     def create_directions(self, grid_holder):
         """
-        创建方向指示器的SVG元素
-        1: 左右方向 (-) - 水平绿色条
-        2: 上下方向 (|) - 垂直蓝色条
+        创建方向指示器的SVG元素 - 箭头形式
+        1: 左右方向 (-) - 水平双向箭头
+        2: 上下方向 (|) - 垂直双向箭头
         """
         gh = grid_holder
         result = []
@@ -534,34 +534,68 @@ class AnimationDrawer:
         for i in range(gh.height):
             for j in range(gh.width):
                 x, y = self.fix_point(i, j, gh.width)
-
                 direction_type = gh.directions[x][y]
                 
+                # 计算箭头的中心位置
+                center_x = gh.svg_settings.draw_start + i * gh.svg_settings.scale_size
+                center_y = gh.svg_settings.draw_start + j * gh.svg_settings.scale_size
+                
                 # 只为有方向限制的位置创建指示器 (1=左右, 2=上下)
-                if direction_type == 1:  # 左右方向 (-)
+                if direction_type == 1:  # 左右方向 (-) - 水平双向箭头
+                    # 创建左右双向箭头的点坐标
+                    arrow_size = gh.svg_settings.r // 2
+                    points = [
+                        # 左箭头
+                        (center_x - gh.svg_settings.r + arrow_size//2, center_y - arrow_size//3),
+                        (center_x - gh.svg_settings.r, center_y),
+                        (center_x - gh.svg_settings.r + arrow_size//2, center_y + arrow_size//3),
+                        # 中间连接线
+                        (center_x - arrow_size//2, center_y + arrow_size//4),
+                        (center_x + arrow_size//2, center_y + arrow_size//4),
+                        # 右箭头
+                        (center_x + gh.svg_settings.r - arrow_size//2, center_y + arrow_size//3),
+                        (center_x + gh.svg_settings.r, center_y),
+                        (center_x + gh.svg_settings.r - arrow_size//2, center_y - arrow_size//3),
+                        # 回到起点
+                        (center_x + arrow_size//2, center_y - arrow_size//4),
+                        (center_x - arrow_size//2, center_y - arrow_size//4),
+                    ]
+                    
                     direction_settings = {
-                        'x': gh.svg_settings.draw_start + i * gh.svg_settings.scale_size - gh.svg_settings.r,
-                        'y': gh.svg_settings.draw_start + j * gh.svg_settings.scale_size - gh.svg_settings.r // 4,
-                        'width': gh.svg_settings.r * 2,
-                        'height': gh.svg_settings.r // 2,
+                        'points': ' '.join([f'{px},{py}' for px, py in points]),
                         'fill': gh.svg_settings.direction_horizontal_color,
                         'stroke': gh.svg_settings.direction_border_color,
                         'stroke_width': 2,
                         'opacity': gh.svg_settings.direction_opacity,
-                        'rx': gh.svg_settings.rx // 2,
                         'class_': 'direction_horizontal'
                     }
-                elif direction_type == 2:  # 上下方向 (|)
+                    
+                elif direction_type == 2:  # 上下方向 (|) - 垂直双向箭头
+                    # 创建上下双向箭头的点坐标
+                    arrow_size = gh.svg_settings.r // 2
+                    points = [
+                        # 上箭头
+                        (center_x - arrow_size//3, center_y - gh.svg_settings.r + arrow_size//2),
+                        (center_x, center_y - gh.svg_settings.r),
+                        (center_x + arrow_size//3, center_y - gh.svg_settings.r + arrow_size//2),
+                        # 中间连接线
+                        (center_x + arrow_size//4, center_y - arrow_size//2),
+                        (center_x + arrow_size//4, center_y + arrow_size//2),
+                        # 下箭头
+                        (center_x + arrow_size//3, center_y + gh.svg_settings.r - arrow_size//2),
+                        (center_x, center_y + gh.svg_settings.r),
+                        (center_x - arrow_size//3, center_y + gh.svg_settings.r - arrow_size//2),
+                        # 回到起点
+                        (center_x - arrow_size//4, center_y + arrow_size//2),
+                        (center_x - arrow_size//4, center_y - arrow_size//2),
+                    ]
+                    
                     direction_settings = {
-                        'x': gh.svg_settings.draw_start + i * gh.svg_settings.scale_size - gh.svg_settings.r // 4,
-                        'y': gh.svg_settings.draw_start + j * gh.svg_settings.scale_size - gh.svg_settings.r,
-                        'width': gh.svg_settings.r // 2,
-                        'height': gh.svg_settings.r * 2,
+                        'points': ' '.join([f'{px},{py}' for px, py in points]),
                         'fill': gh.svg_settings.direction_vertical_color,
                         'stroke': gh.svg_settings.direction_border_color,
                         'stroke_width': 2,
                         'opacity': gh.svg_settings.direction_opacity,
-                        'rx': gh.svg_settings.rx // 2,
                         'class_': 'direction_vertical'
                     }
                 else:
@@ -574,7 +608,7 @@ class AnimationDrawer:
                     if not self.check_in_radius(x, y, ego_x, ego_y, grid_holder.obs_radius):
                         direction_settings.update(opacity=gh.svg_settings.shaded_opacity)
 
-                result.append(Rectangle(**direction_settings))
+                result.append(Polygon(**direction_settings))
 
         return result
 
